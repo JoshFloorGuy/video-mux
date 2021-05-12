@@ -2,12 +2,48 @@ const net = require('net');
 const http = require('http');
 // const util = require('./util.js');
 const crypt = require('crypto');
+const NodeMediaServer = require('node-media-server');
+const nps = require('node-tcp-proxy');
+const xp = require('express');
+const app = xp();
+ 
+// THUMBNAILS: ffmpeg -re -i rtmp://localhost/live/a -r 1/3 -c:v libx264 -preset veryfast -tune zerolatency -vf scale=480:-1 -an -f flv rtmp://localhost/live/b
+ 
+const host = "192.168.1.19";
 
+const config = {
+  rtmp: {
+	host: host,
+    port: 1935,
+    chunk_size: 60000,
+    gop_cache: true,
+    ping: 30,
+    ping_timeout: 60
+  },
+  http: {
+    port: 8000,
+    allow_origin: '*'
+  }
+};
+ 
+var nms = new NodeMediaServer(config)
+nms.run();
+
+app.get(/.*/,(req,res) => {
+	console.log(req);
+	res.send("shhhhhh");
+});
+
+app.listen(80,host, () => {
+	console.log("listenting on port 80");
+});
+
+/*
 var httpTest = http.createServer(
 	function(req,res) {
 		console.log(req);
 	}
-).listen(8081,"localhost");
+).listen(8081,host);
 
 var sockets = new Map();
 var server = net.Server(function(socket) {
@@ -98,4 +134,4 @@ function newSocket(s, d) {
 	//if(d.length
 }
 
-server.listen({host:"localhost",port:8080});
+server.listen({host:host,port:8080}); */
