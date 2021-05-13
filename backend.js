@@ -6,15 +6,17 @@ const NodeMediaServer = require('node-media-server');
 const nps = require('node-tcp-proxy');
 const xp = require('express');
 const app = xp();
- 
+
+const context = require('./node_modules/node-media-server/node_core_ctx');
+
 // THUMBNAILS: ffmpeg -re -i rtmp://localhost/live/a -r 1/3 -c:v libx264 -preset veryfast -tune zerolatency -vf scale=480:-1 -an -f flv rtmp://localhost/live/b
  
 const host = "192.168.1.19";
 
-const config = {
+const configInjest = {
   rtmp: {
 	host: host,
-    port: 1935,
+    port: 1937,
     chunk_size: 60000,
     gop_cache: true,
     ping: 30,
@@ -25,18 +27,58 @@ const config = {
     allow_origin: '*'
   }
 };
+
+const configOutjest = {
+  rtmp: {
+	host: host,
+    port: 1936,
+    chunk_size: 60000,
+    gop_cache: true,
+    ping: 30,
+    ping_timeout: 60
+  },
+  http: {
+    port: 8001,
+    allow_origin: '*'
+  }
+};
  
-var nms = new NodeMediaServer(config)
-nms.run();
+var nmsInjest = new NodeMediaServer(configInjest);
+nmsInjest.run();
+var nmsOutjest = new NodeMediaServer(configOutjest);
+nmsOutjest.run();
 
-app.get(/.*/,(req,res) => {
-	console.log(req);
+var newProxy = nps.createProxy(1935,host,1937, {
+	upstream: function(context, data) {
+		//console.log(context);
+        //data = replace(data, `${PROXY_HOST}:${PROXY_PORT}`, SERVICE_HOST);
+        return data;
+    },
+    downstream: function(context, data) {
+		//console.log(context);
+        //data = replace(data, SERVICE_HOST, `${PROXY_HOST}:${PROXY_PORT}`);
+        return data;
+    }
+});
+
+context.nodeEvent.on("connect",(e) => {
+	console.log(e);
+});
+
+nmsInjest.nrs.tcpServer.on("connection",(socket) => {
+	console.log(socket.remoteAddress);
+	console.log(socket);
+	console.log(nmsInjest.context);
+});
+
+//app.get(/.*/,(req,res) => {
+/*	console.log(req);
 	res.send("shhhhhh");
-});
+});*/
 
-app.listen(80,host, () => {
+/*app.listen(80,host, () => {
 	console.log("listenting on port 80");
-});
+});*/
 
 /*
 var httpTest = http.createServer(
