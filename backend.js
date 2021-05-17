@@ -5,18 +5,21 @@ const crypt = require('crypto');
 const NodeMediaServer = require('node-media-server');
 const nps = require('node-tcp-proxy');
 const xp = require('express');
+const fs = require('fs');
 const app = xp();
+
+let configFile = fs.readFileSync('config.json');
+let config = JSON.parse(configFile);
 
 const context = require('./node_modules/node-media-server/node_core_ctx');
 
 // THUMBNAILS: ffmpeg -re -i rtmp://localhost/live/a -r 1/3 -c:v libx264 -preset veryfast -tune zerolatency -vf scale=480:-1 -an -f flv rtmp://localhost/live/b
  
-const host = "192.168.1.19";
 
 const configInjest = {
   rtmp: {
-	host: host,
-    port: 1937,
+	host: config.host,
+    port: config.ports.rtmp,
     chunk_size: 60000,
     gop_cache: true,
     ping: 30,
@@ -30,7 +33,7 @@ const configInjest = {
 
 const configOutjest = {
   rtmp: {
-	host: host,
+	host: config.host,
     port: 1936,
     chunk_size: 60000,
     gop_cache: true,
@@ -45,9 +48,10 @@ const configOutjest = {
  
 var nmsInjest = new NodeMediaServer(configInjest);
 nmsInjest.run();
-var nmsOutjest = new NodeMediaServer(configOutjest);
-nmsOutjest.run();
+/*var nmsOutjest = new NodeMediaServer(configOutjest);
+nmsOutjest.run();*/
 
+/*
 var newProxy = nps.createProxy(1935,host,1937, {
 	upstream: function(context, data) {
 		//console.log(context);
@@ -59,17 +63,34 @@ var newProxy = nps.createProxy(1935,host,1937, {
         //data = replace(data, SERVICE_HOST, `${PROXY_HOST}:${PROXY_PORT}`);
         return data;
     }
+});*/
+
+context.nodeEvent.on("postPublish", (sessionId,sessionPath,publishArguments) => {
+	let liveArray = sessionPath.split("/");
+	liveArray.shift();
+	let openSocket = context.sessions.get(sessionId);
+	console.log(liveArray);
+	//console.log(a,b,c);
+	//console.log(context.sessions.get(a));
 });
 
-context.nodeEvent.on("connect",(e) => {
-	console.log(e);
-});
-
-nmsInjest.nrs.tcpServer.on("connection",(socket) => {
-	console.log(socket.remoteAddress);
-	console.log(socket);
-	console.log(nmsInjest.context);
-});
+/*
+const testNet = net.createServer((socket)=>{
+	let newConnection = net.createConnection({port:1937, host:host}, () => {
+		newConnection.on('end', () => {
+			socket.end();
+			newConnection.end();
+		});
+	});
+	socket.pipe(newConnection);
+	newConnection.pipe(socket);
+	socket.on('end', () => {
+		newConnection.end();
+		socket.end();
+	});
+}).listen(1935,host,() => {
+	console.log("test relay");
+});*/
 
 //app.get(/.*/,(req,res) => {
 /*	console.log(req);
