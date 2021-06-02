@@ -6,6 +6,7 @@ const NodeMediaServer = require('node-media-server');
 const nps = require('node-tcp-proxy');
 const xp = require('express');
 const fs = require('fs');
+const MS = require('./interfaces/MediaServer');
 const app = xp();
 
 let configFile = fs.readFileSync('config.json');
@@ -65,13 +66,119 @@ var newProxy = nps.createProxy(1935,host,1937, {
     }
 });*/
 
+var mediaServices = {};
+
+function updateListeners(service,data) {
+	mediaServices[service].busy = true;
+	for(var i = 0; i < mediaServices[service].listeners.length; i++) {
+		if(!mediaServices[service].listeners[i].destroyed) mediaServices[service].listeners[i].write(data);
+	}
+	mediaServices.busy = false;
+}
+
+var testRelay = net.createServer((socket) => {
+	//console.log("pomos");
+	//console.log(socket);
+	var packets = 2;
+	socket.on("data",(data) => {
+		var buf = data;
+		while(buf.length > 32) {
+			console.log(buf.slice(0,32));
+			buf = buf.slice(32);
+		}
+		console.log(buf);
+		/*if(packets == 2) {
+			buf = buf.slice(24);
+			var stringLen = buf.readUInt16BE();
+			console.log(stringLen);
+			console.log(buf.slice(26,26+stringLen)+"");
+		} else {
+			var index = 0;
+			while(index != -1) {
+				index = buf.indexOf(Buffer.from([0x00,0x00,0x00,0x00]));
+				if(index > -1) {
+					console.log(buf.slice(0,index));
+					buf = buf.slice(index+4);
+				}
+			}
+			console.log(buf);
+		}*/
+		//console.log(data+"");
+		//console.log(data);
+		packets--;
+		if(packets==0) socket.removeAllListeners("data");
+		var good = true;
+		/*
+		var command = (data+"").split(" ");
+		switch(command[0]) {
+			case "que":
+				
+				break;
+			case "get":
+				if(typeof mediaServices[command[1]] !== 'undefined' && mediaServices[command[1]]) {
+					mediaServices[command[1]].listeners.push(socket);
+					socket.on("close",() => {
+						var i = mediaServices[command[1]].listeners.indexOf(socket);
+						mediaServices[command[1]].listeners.splice(i,1);
+					});
+				} else {
+					socket.write("no");
+					socket.destroy();
+				}
+				break;
+			case "put":
+				if(typeof mediaServices[command[1]] === 'undefined') {
+					mediaServices[command[1]] = {
+						sources: {},
+						active: null,
+						listeners: [],
+						busy: false
+					};
+				}
+				if(typeof mediaServices[command[1]].sources[command[2]] !== 'undefined' && mediaServices[command[1]].sources[command[2]]) {
+					socket.write("no");
+					socket.destroy();
+				} else {
+					mediaServices[command[1]].sources[command[2]] = socket;
+					if(mediaServices[command[1]].active == null || mediaServices[command[1]].active.destroyed) {
+						mediaServices[command[1]].active = socket;
+						socket.on("data", (data) => {
+							updateListeners(command[1],data);
+						});
+					}
+				}
+				break;
+			case "swi":
+				if(typeof mediaServices[command[1]].sources[command[2]] !== 'undefined' && mediaServices[command[1]].sources[command[2]]) {
+					while(mediaServices[command[1]].busy);
+					mediaServices[command[1]].active = mediaServices[command[1]].sources[command[2]];
+					socket.write("ok");
+					socket.destroy();
+				} else {
+					socket.write("no");
+					socket.destroy();
+				}
+				break;
+			default:
+				socket.write("no");
+				socket.destroy();
+		}
+		if(good && !socket.destroyed) socket.write("ok");*/
+	});
+});
+
+testRelay.listen(config.ports.relay,config.host, () => {
+	console.log("test relay ready!");
+});
+
 context.nodeEvent.on("postPublish", (sessionId,sessionPath,publishArguments) => {
 	let liveArray = sessionPath.split("/");
 	liveArray.shift();
 	let openSocket = context.sessions.get(sessionId);
-	console.log(liveArray);
-	//console.log(a,b,c);
-	//console.log(context.sessions.get(a));
+	
+	if(liveArray[0] != "live") {
+		// TODO: add FFMPEG commands to send to proxy server!
+	}
 });
 
 /*

@@ -1,7 +1,5 @@
 // MediaServer class
 
-class MediaServer() {
-	constructor() {
-		
-	}
+function MediaServer() {
+	
 }
