@@ -1,5 +1,0 @@
-// MediaServer class
-
-function MediaServer() {
-	
-}
