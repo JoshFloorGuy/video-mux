@@ -1,4 +1,4 @@
-node_modules/
-.vs/
-gstreamer/BUILDS/
-gstreamer/CMakeFiles/
+**/node_modules
+**/.vs
+**/gstreamer/BUILDS/
+**/gstreamer/CMakeFiles/
