@@ -1,5 +1,0 @@
-﻿  mediaServer.cpp
-..\mediaServer.cpp(44,9): warning C4552: '%': result of expression not used
-..\mediaServer.cpp(62,9): warning C4552: '%': result of expression not used
-C:\Users\joshf\Documents\Nodejs\Stream\gstream\mediaServer.cpp(285): warning C4715: 'MediaServer::addConnection': not all control paths return a value
-  gstream_switch.vcxproj -> C:\Users\joshf\Documents\Nodejs\Stream\gstream\2021.19.5.18.18\Debug\gstream_switch.exe

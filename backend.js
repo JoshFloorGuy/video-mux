@@ -3,18 +3,19 @@ const http = require('http');
 // const util = require('./util.js');
 const crypt = require('crypto');
 const NodeMediaServer = require('node-media-server');
-const nps = require('node-tcp-proxy');
 const xp = require('express');
 const fs = require('fs');
-const MS = require('./interfaces/MediaServer');
 const app = xp();
+const ws = require('ws');
 
 let configFile = fs.readFileSync('config.json');
 let config = JSON.parse(configFile);
 
-const context = require('./node_modules/node-media-server/node_core_ctx');
+if(process.argv.length > 2) {
+	config.host = process.argv[2];
+}
 
-// THUMBNAILS: ffmpeg -re -i rtmp://localhost/live/a -r 1/3 -c:v libx264 -preset veryfast -tune zerolatency -vf scale=480:-1 -an -f flv rtmp://localhost/live/b
+const context = require('./node_modules/node-media-server/node_core_ctx');
  
 
 const configInjest = {
@@ -31,42 +32,77 @@ const configInjest = {
     allow_origin: '*'
   }
 };
-
-const configOutjest = {
-  rtmp: {
-	host: config.host,
-    port: 1936,
-    chunk_size: 60000,
-    gop_cache: true,
-    ping: 30,
-    ping_timeout: 60
-  },
-  http: {
-    port: 8001,
-    allow_origin: '*'
-  }
-};
  
 var nmsInjest = new NodeMediaServer(configInjest);
 nmsInjest.run();
-/*var nmsOutjest = new NodeMediaServer(configOutjest);
-nmsOutjest.run();*/
-
-/*
-var newProxy = nps.createProxy(1935,host,1937, {
-	upstream: function(context, data) {
-		//console.log(context);
-        //data = replace(data, `${PROXY_HOST}:${PROXY_PORT}`, SERVICE_HOST);
-        return data;
-    },
-    downstream: function(context, data) {
-		//console.log(context);
-        //data = replace(data, SERVICE_HOST, `${PROXY_HOST}:${PROXY_PORT}`);
-        return data;
-    }
-});*/
 
 var mediaServices = {};
+var connections = [];
+var idsToConnections = {};
+
+app.use(xp.static('public'));
+
+const wss = new ws.Server({ noServer: true });
+
+function sendMessageToMediaServer(message) {
+	let newConnection = net.createConnection(6000,"localhost", () => {
+		newConnection.write(message);
+	});
+	wss.clients.forEach((s) => {
+		s.send(message);
+	});
+}
+
+wss.on('connection', function connection(soc) {
+	
+  soc.on('message', function incoming(message) {
+	  sendMessageToMediaServer(message);
+    console.log('received: %s', message);
+  });
+
+  soc.send((connections.length) ? 'init '+connections.toString() : 'init');
+});
+
+const wsListener = app.listen(80, config.host);
+wsListener.on('upgrade', (req, soc, head) => {
+	wss.handleUpgrade(req,soc,head,soc => {
+		wss.emit('connection', soc, req);
+	});
+});
+
+context.nodeEvent.on("postPublish", (sessionId,sessionPath,publishArguments) => {
+	let liveArray = sessionPath.split("/");
+	liveArray.shift();
+	let openSocket = context.sessions.get(sessionId);
+	var broadcastFunction = sendMessageToMediaServer;
+	
+	if(liveArray[0] != "live") {
+		// TODO: add verification and appropriate calls to media relay
+	} else {
+		if(connections.indexOf(liveArray[1]) < 0) {
+			connections.push(liveArray[1]);
+			idsToConnections[sessionId] = liveArray[1];
+			broadcastFunction("add "+liveArray[1]);
+		}
+	}
+});
+
+context.nodeEvent.on("doneConnect", (sessionId,closeArguments) => {
+	let openSocket = context.sessions.get(sessionId);
+	var broadcastFunction = sendMessageToMediaServer;
+	
+	if(idsToConnections[sessionId]!=null) {
+		connections.splice(idsToConnections[sessionId]);
+		broadcastFunction("close "+idsToConnections[sessionId]);
+		delete idsToConnections[sessionId];
+	}
+});
+
+
+
+
+/*
+This was included in the server implementation
 
 function updateListeners(service,data) {
 	mediaServices[service].busy = true;
@@ -74,8 +110,16 @@ function updateListeners(service,data) {
 		if(!mediaServices[service].listeners[i].destroyed) mediaServices[service].listeners[i].write(data);
 	}
 	mediaServices.busy = false;
-}
+}*/
 
+/*
+ *	This was the beginning of an RTMP server implementation
+ *	
+ *	Currently, I do not plan on continuing this implementation, because
+ *	I would like to port lower level things to C/++ so I can manage threads,
+ *	delegate tasks as I see fit, and (hopefully) make an implementation that
+ *	would run better than a Node implementation
+ */
 var testRelay = net.createServer((socket) => {
 	//console.log("pomos");
 	//console.log(socket);
@@ -167,21 +211,18 @@ var testRelay = net.createServer((socket) => {
 	});
 });
 
+/*
+
+
+
 testRelay.listen(config.ports.relay,config.host, () => {
 	console.log("test relay ready!");
 });
 
-context.nodeEvent.on("postPublish", (sessionId,sessionPath,publishArguments) => {
-	let liveArray = sessionPath.split("/");
-	liveArray.shift();
-	let openSocket = context.sessions.get(sessionId);
-	
-	if(liveArray[0] != "live") {
-		// TODO: add FFMPEG commands to send to proxy server!
-	}
-});
 
-/*
+
+
+
 const testNet = net.createServer((socket)=>{
 	let newConnection = net.createConnection({port:1937, host:host}, () => {
 		newConnection.on('end', () => {

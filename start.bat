@@ -1,2 +1,2 @@
-node backend.js
+node backend.js localhost
 pause

@@ -1,0 +1,3 @@
+C:/Users/joshf/Documents/Nodejs/Stream/gstream/BUILDS/6.10.2021.19.42/CMakeFiles/gstream_switch.dir
+C:/Users/joshf/Documents/Nodejs/Stream/gstream/BUILDS/6.10.2021.19.42/CMakeFiles/ALL_BUILD.dir
+C:/Users/joshf/Documents/Nodejs/Stream/gstream/BUILDS/6.10.2021.19.42/CMakeFiles/ZERO_CHECK.dir

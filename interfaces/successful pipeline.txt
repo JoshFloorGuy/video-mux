@@ -19,6 +19,9 @@ gst-launch-1.0 rtmp2src location=rtmp://localhost/live/a do-timestamp=true ! flv
 
 gst-launch-1.0 rtmp2src location=rtmp://localhost/live/a do-timestamp=true ! flvdemux ! decodebin ! input-selector name=input ! videoscale ! video/x-raw,profile=baseline,width=160,height=90 ! x264enc ! flvmux ! rtmp2sink location=rtmp://localhost/final/live
 
+
+gst-launch-1.0 rtmp2src location=rtmp://localhost/live/a do-timestamp=true ! queue2 ! flvdemux ! queue ! decodebin ! queue ! input-selector name=input ! queue ! videoscale ! video/x-raw,profile=baseline,width=1920,height=1080 ! queue ! x264enc speed-preset=ultrafast tune=zerolatency ! queue ! flvmux ! queue ! rtmp2sink location=rtmp://localhost/final/live
+
 gst-launch-1.0
 
 rtmp2src location=rtmp://localhost/live/a do-timestamp=true
