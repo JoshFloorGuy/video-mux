@@ -1,4 +1,0 @@
-﻿  mediaServer.cpp
-..\mediaServer.cpp(48,9): warning C4552: '%': result of expression not used
-..\mediaServer.cpp(66,9): warning C4552: '%': result of expression not used
-  gstream_switch.vcxproj -> C:\Users\joshf\Documents\Nodejs\Stream\gstream\2021.19.5.18.18\Debug\gstream_switch.exe
