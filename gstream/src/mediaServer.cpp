@@ -179,7 +179,7 @@ void MediaConnection::setActive(bool active) {
 }
 
 string MediaServer::makeEndpointURI(string app, string name) {
-	string ret = endpoint.c_str();
+	string ret = endpoint;
 	return ret.append(app).append("/").append(name);
 }
 
@@ -247,7 +247,7 @@ MediaServer::MediaServer(string outputAddress) {
 
 bool MediaServer::addConnection(string incomingName) {
 	if (table.contains(incomingName)) return false;
-	GstElement* source, *demux, *decode, *superQueue;
+	GstElement* source, *demux, *decode;
 
 	//rtmp2src location = rtmp://localhost/live/a do-timestamp=true
 	//flvdemux
@@ -258,7 +258,7 @@ bool MediaServer::addConnection(string incomingName) {
 	string demuxName = ((string) "demux-") + (incomingName);
 	string decodeName = ((string) "decode-") + (incomingName);
 
-	source = gst_element_factory_make("rtmpsrc", srcName.c_str());
+	source = gst_element_factory_make("rtmp2src", srcName.c_str());
 	demux = gst_element_factory_make("flvdemux", demuxName.c_str());
 	decode = gst_element_factory_make("decodebin", decodeName.c_str());
 	//superQueue = gst_element_factory_make("queue2", NULL);

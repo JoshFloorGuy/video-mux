@@ -1,9 +1,11 @@
 const net = require('net');
+const udp = require('dgram');
 const http = require('http');
 // const util = require('./util.js');
 const crypt = require('crypto');
 const NodeMediaServer = require('node-media-server');
 const xp = require('express');
+const child_process = require('child_process');
 const fs = require('fs');
 const app = xp();
 const ws = require('ws');
@@ -37,6 +39,7 @@ var nmsInjest = new NodeMediaServer(configInjest);
 nmsInjest.run();
 
 var mediaServices = {};
+var controls = [];
 var connections = [];
 var idsToConnections = {};
 
@@ -45,22 +48,101 @@ app.use(xp.static('public'));
 const wss = new ws.Server({ noServer: true });
 
 function sendMessageToMediaServer(message) {
+	console.log("sending message");
 	let newConnection = net.createConnection(6000,"localhost", () => {
 		newConnection.write(message);
+		console.log("Sent to switch:",message);
 	});
-	wss.clients.forEach((s) => {
+	controls.forEach((s) => {
 		s.send(message);
 	});
 }
 
-wss.on('connection', function connection(soc) {
+wss.on('connection', (soc, req) => {
 	
-  soc.on('message', function incoming(message) {
-	  sendMessageToMediaServer(message);
-    console.log('received: %s', message);
-  });
-
-  soc.send((connections.length) ? 'init '+connections.toString() : 'init');
+	const connection = req.url.substring(1).split("/");
+	
+	switch(connection[0]) {
+		case "control":
+			controls.push(soc);
+			soc.on('message', (message) => {
+				sendMessageToMediaServer(message);
+				console.log('received: %s', message);
+			});
+			soc.on('close', function() {
+				controls.splice(controls.indexOf(soc));
+			});
+			soc.send((connections.length) ? 'init '+connections.toString() : 'init');
+			break;
+		case "video":
+			if(connection.length < 3) {
+				soc.send("false");
+			}
+			var closeConnection = (socket) => {
+				if(mediaServices[socket]) {
+					if(mediaServices[socket].ffmpeg && !mediaServices[socket].ffmpeg.exitCode) mediaServices[socket].ffmpeg.kill('SIGINT');
+					connections.splice(connections.indexOf(mediaServices[socket].connectionName));
+					delete mediaServices[socket];
+				}
+				socket.terminate();
+			}
+			var initMessage = (message) => {
+				try {
+					// The constraints are as follows:
+					// 0: copy codec
+					// 1: is there an audio track
+					const constraints = message.split(" ");
+					soc.removeAllListeners("message");
+					var codec = ["-c:v"];
+					codec = codec.concat((constraints[0]=="true") ? ['copy'] : ['libx264','-preset', 'veryfast','-tune', 'zerolatency']);
+					var input = ["-re","-i", "pipe:"];
+					if((constraints[1]=="false")) {
+						input = ['-f','lavfi','-i','anullsrc'].concat(input);
+						input.push("-shortest");
+					}
+					var command = input.concat(codec).concat(['-c:a', 'aac', '-ar', '44100', '-f', 'flv']);
+					command.push("rtmp://"+config.host+"/live/"+connection[2]);
+					
+					console.log(command.join(" "));
+					var newChild = child_process.spawn('ffmpeg',command);
+					newChild.on('close', () => {
+						console.log('Connection '+connection[2]+' closed');
+						closeConnection(soc);
+					});
+					
+					newChild.stdin.on('error', (e) => {
+						console.log("FFMPEG Error for "+connection[2]+"\n"+e.toString());
+					});
+					
+					/*newChild.stderr.on('data', (e) => {
+						console.log("FFMPEG Error for "+mediaServices[soc].connectionName+"\n"+e.toString());
+					});*/
+					soc.on("message", (msg) => {
+						mediaServices[soc].ffmpeg.stdin.write(msg);
+					});
+					soc.on("close", () => {
+						closeConnection(soc);
+					});
+					mediaServices[soc].ffmpeg = newChild;
+					soc.send("true");
+					console.log("now listening");
+				} catch(e) {
+					closeConnection(soc);
+					console.log(e);
+					soc.send("false");
+				}
+			};
+			if(connections.indexOf(connection[2]) > -1) {
+				soc.send("false");
+			} else {
+				soc.on("message",initMessage);
+				mediaServices[soc] = {
+					connectionName: connection[2],
+				}
+				soc.send("true");
+			}
+			break;
+	}
 });
 
 const wsListener = app.listen(80, config.host);
@@ -83,6 +165,8 @@ context.nodeEvent.on("postPublish", (sessionId,sessionPath,publishArguments) => 
 			connections.push(liveArray[1]);
 			idsToConnections[sessionId] = liveArray[1];
 			broadcastFunction("add "+liveArray[1]);
+		} else {
+			// TODO: error, this already exists
 		}
 	}
 });
@@ -97,9 +181,6 @@ context.nodeEvent.on("doneConnect", (sessionId,closeArguments) => {
 		delete idsToConnections[sessionId];
 	}
 });
-
-
-
 
 /*
 This was included in the server implementation

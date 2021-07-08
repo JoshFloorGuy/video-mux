@@ -1,0 +1,46 @@
+<html>
+	<head>
+		<title>Stream to Server</title>
+		<script src="./include-stream.js" type="text/javascript"></script>
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
+		<div class="recording-page">
+			<h1 style="display:flex;justify-content:center">Stream from Browser</h1>
+			<div class="player-container">
+				<div class="options-container">
+					<div class="option-container">
+						<p>Video Input</p>
+						<select id="videoInput">
+						</select>
+					</div>
+					<div class="option-container">
+						<p>Audio Input</p>
+						<select id="audioInput">
+							<option value="">No Audio</option>
+						</select>
+					</div>
+					<div class="option-container">
+						<p>Video Resolution</p>
+						<select id="videoResolution">
+							<option value="1280,720">720p</option>
+							<option value="848,480">480p</option>
+							<option value="640,360">360p</option>
+							<option value="426,240">240p</option>
+						</select>
+					</div>
+					<div class="option-container">
+						<p>Stream Name</p>
+						<input id="contentName">
+					</div>
+					<div class="option-container">
+						<button id="startStream">Start</button>
+					</div>
+				</div>
+				<div class="playback-container">
+					<video id="playback" playsinline autoplay muted>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

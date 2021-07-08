@@ -8,6 +8,8 @@ For the Node portion of this project, you will need the following libraries
 * `express`
 * `ws`
 
+You will also need `ffmpeg` installed on your machine.
+
 To build the c++ portion of this application you will need 2 libraries:
 
 * [GStreamer](https://gstreamer.freedesktop.org/download/)

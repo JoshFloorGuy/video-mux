@@ -2,3 +2,4 @@
 **/.vs
 **/BUILDS
 **/CMakeFiles
+**/credentials

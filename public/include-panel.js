@@ -23,7 +23,7 @@ function init(container) {
 	if(initialized) return false;
 	
 	connectionContainer = container;
-	socketConnection = new WebSocket("ws://"+window.location.hostname);
+	socketConnection = new WebSocket(window.location.protocol.replace("http","ws")+"//"+window.location.hostname+"/control");
 	socketConnection.onmessage = function(message) {
 		let command = message.data.split(" ");
 		switch(command[0]) {
