@@ -27,3 +27,7 @@ The CMake file can be found in the `gstreamer` folder, and build in the `BUILDS`
 	* Display what streams are currently connected
 	* Switch streams (if they are ready)
 6. `node-media-server` provides a dashboard that can monitor all streams handled by the server. This can be accessed at `http://{host}:8000/admin`
+
+## Accessing Web Pages
+
+Because I could not find a proper solution to creating a private key and signature on a local network, in order to access web pages on another browser, you will need to tunnel requests to your machine through an outside service like [ngrok](https://ngrok.com/). This will also be the case if you want to accept incoming streams from devices outside your network. In the future, if this is deployed as a service, it will have a dedicated domain with a private key and signature, which will be passed in through the application.
