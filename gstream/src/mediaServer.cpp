@@ -121,21 +121,35 @@ bool MediaConnection::connectElement(GstElement* elem) {
 	GstElement* prev, * next;
 	prev = elem;
 	if (elem == demux) {
-		if (state & 0b1) return false;
+		if (state & 0b1) {
+			if (elem->numsrcpads == 2) {
+				gst_element_link(elem,decode);
+				gst_element_set_state(decode, GST_STATE_PAUSED);
+			}
+			return false;
+		}
 		next = decode;
 	} else {
+		if (elem->numsrcpads == 2) {
+			gst_element_link_pads(elem, "src", vidSwitch, "sink");
+		}
+		else {
+			return false;
+		}
 		if (state & 0b10) return false;
 		next = vidSwitch;
 	}
-	if (gst_element_link(prev, next)) {
+	if (gst_element_link(prev,next)) {
 		if (prev == demux) {
 			state |= 0b01;
 		}
 		else {
 			state |= 0b10;
 		}
-		if ((state & 0b11) == 0b11) {
+		if ((state & 0b10)) {
+			gst_element_iterate_pads(vidSwitch);
 			connectionPad = gst_element_get_static_pad(decode, "src_0")->peer;
+			gst_element_set_state(decode, GST_STATE_PLAYING);
 			state |= 0b100;
 			if (vidSwitch->numsinkpads == 1) {
 				server->setActiveConnection(this);
@@ -208,7 +222,7 @@ MediaServer::MediaServer(string outputAddress) {
 	switchPad = gst_element_factory_make("input-selector", "bigselector");
 	scale = gst_element_factory_make("videoscale", "finalscale");
 	framerate = gst_element_factory_make("videorate", "finalrate");
-	scaleCaps = gst_caps_from_string("video/x-raw, profile=baseline, width=1280, height=720, framerate=30/1");
+	scaleCaps = gst_caps_from_string("video/x-raw, audio/x-raw, profile=baseline, width=1280, height=720, framerate=30/1");
 	scalefilter = gst_element_factory_make("capsfilter", NULL);
 	g_assert(scalefilter != NULL);
 	postConvert = gst_element_factory_make("x264enc", NULL);
@@ -281,8 +295,8 @@ bool MediaServer::addConnection(string incomingName) {
 	g_object_set(source, "do-timestamp", true, NULL);
 
 	// Add elements to the pipeline bin and link source to demux
-	gst_bin_add_many(GST_BIN(pipeline), source, demux, decode, NULL);
-	gst_element_link_many(source, demux, NULL);
+	gst_bin_add_many(GST_BIN(pipeline), source, decode, NULL);
+	gst_element_link_many(source, decode, NULL);
 	// Add signal listener for demux and decode pads
 	g_signal_connect(demux, "pad-added", G_CALLBACK(finishConnection), connectionPointer);
 	g_signal_connect(decode, "pad-added", G_CALLBACK(finishConnection), connectionPointer);
