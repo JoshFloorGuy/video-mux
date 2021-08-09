@@ -107,12 +107,13 @@ Entry::Entry(int i, string k, void* d) {
 * server: a reference to the parent mediaServer
 */
 
-MediaConnection::MediaConnection(GstElement* s, GstElement* dm, GstElement* dc, GstElement* sw, MediaServer* sv)
+MediaConnection::MediaConnection(GstElement* s, GstElement* dm, GstElement* dc, GstElement* vs, GstElement* as, MediaServer* sv)
 {
 	source = s;
 	demux = dm;
 	decode = dc;
-	vidSwitch = sw;
+	vidSwitch = vs;
+	audSwitch = as;
 	server = sv;
 	state = 0x0;
 }
@@ -212,17 +213,18 @@ MediaServer::MediaServer(string outputAddress) {
 	endpoint = outputAddress;
 	GstElement* mux, * sink, * scale, *framerate, * scalefilter, * convertfilter, * postConvert;
 	// queues
-	GstElement* q1, * q2, * q3;
+	GstElement* q1, * q2, * q3, *q4;
 	GstCaps* scaleCaps;
 	pipeline = gst_pipeline_new("bigPipeline");
 
 	// A lot of queues are used, this may save time
 	queueFactory = gst_element_factory_find("queue");
 
-	switchPad = gst_element_factory_make("input-selector", "bigselector");
+	vidSwitch = gst_element_factory_make("input-selector", "vidselector");
+	audSwitch = gst_element_factory_make("input-selector", "audselector");
 	scale = gst_element_factory_make("videoscale", "finalscale");
 	framerate = gst_element_factory_make("videorate", "finalrate");
-	scaleCaps = gst_caps_from_string("video/x-raw, audio/x-raw, profile=baseline, width=1280, height=720, framerate=30/1");
+	scaleCaps = gst_caps_from_string("video/x-raw, profile=baseline, width=1280, height=720, framerate=30/1");
 	scalefilter = gst_element_factory_make("capsfilter", NULL);
 	g_assert(scalefilter != NULL);
 	postConvert = gst_element_factory_make("x264enc", NULL);
@@ -231,6 +233,7 @@ MediaServer::MediaServer(string outputAddress) {
 	q1 = gst_element_factory_create(queueFactory, NULL);
 	q2 = gst_element_factory_create(queueFactory, NULL);
 	q3 = gst_element_factory_create(queueFactory, NULL);
+	q4 = gst_element_factory_create(queueFactory, NULL);
 
 	//input - selector name = input
 	//videoscale
@@ -240,8 +243,8 @@ MediaServer::MediaServer(string outputAddress) {
 	//flvmux
 	//rtmp2sink location = rtmp://localhost/final/live
 
-	gst_bin_add_many(GST_BIN(pipeline), switchPad, scale, framerate, scalefilter, postConvert, mux, sink, q1, q2, q3, NULL);
-	if (!gst_element_link_many(switchPad, q1, scale, framerate, scalefilter, postConvert, q2, mux, q3, sink, NULL)) {
+	gst_bin_add_many(GST_BIN(pipeline), vidSwitch, audSwitch, scale, framerate, scalefilter, postConvert, mux, sink, q1, q2, q3, q4, NULL);
+	if (!gst_element_link_many(vidSwitch, q1, scale, framerate, scalefilter, postConvert, q2, mux, q3, sink, NULL) || !gst_element_link_many(audSwitch,q4,mux, NULL)) {
 		failed = true;
 		g_printerr("Error: failed to link elements\n");
 	}
@@ -280,7 +283,7 @@ bool MediaServer::addConnection(string incomingName) {
 	MediaConnection * connectionPointer;
 	connectionPointer = (MediaConnection*) malloc(sizeof(MediaConnection));
 	if (connectionPointer == 0) return false;
-	memcpy(connectionPointer, (new MediaConnection(source,demux,decode,switchPad,this)), sizeof(MediaConnection));
+	memcpy(connectionPointer, (new MediaConnection(source,demux,decode,vidSwitch,audSwitch,this)), sizeof(MediaConnection));
 
 	// Add new connection to the table
 	if (!table.insertItem(incomingName, (void*) connectionPointer)) {
@@ -298,7 +301,6 @@ bool MediaServer::addConnection(string incomingName) {
 	gst_bin_add_many(GST_BIN(pipeline), source, decode, NULL);
 	gst_element_link_many(source, decode, NULL);
 	// Add signal listener for demux and decode pads
-	g_signal_connect(demux, "pad-added", G_CALLBACK(finishConnection), connectionPointer);
 	g_signal_connect(decode, "pad-added", G_CALLBACK(finishConnection), connectionPointer);
 	bool ret = true;
 	// Set each new element to playing
@@ -344,10 +346,10 @@ bool MediaServer::switchConnection(string key) {
 		return false;
 	}
 	try {
-		gst_element_set_state(switchPad, GST_STATE_PAUSED);
-		g_object_set(G_OBJECT(switchPad), "active-pad", newSource->getPad(), NULL);
+		gst_element_set_state(vidSwitch, GST_STATE_PAUSED);
+		g_object_set(G_OBJECT(vidSwitch), "active-pad", newSource->getPad(), NULL);
 		setActiveConnection(newSource);
-		gst_element_set_state(switchPad, GST_STATE_PLAYING);
+		gst_element_set_state(vidSwitch, GST_STATE_PLAYING);
 		return true;
 	}
 	catch (int e) {

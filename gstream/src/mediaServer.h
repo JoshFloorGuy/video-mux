@@ -32,7 +32,7 @@ public:
 };
 
 class MediaConnection {
-	GstElement* source, * demux, * decode, * vidSwitch;
+	GstElement* source, * demux, * decode, * vidSwitch, *audSwitch;
 	GstPad* connectionPad = NULL;
 	uint8_t state;
 	MediaServer *server;
@@ -44,7 +44,7 @@ class MediaConnection {
 	* Bit 3: Element is the currently playing item
 	*/
 public:
-	MediaConnection(GstElement* s, GstElement* dm, GstElement* dc, GstElement* sw, MediaServer *sv);
+	MediaConnection(GstElement* s, GstElement* dm, GstElement* dc, GstElement* vs, GstElement* as, MediaServer *sv);
 	bool connectElement(GstElement* elem);
 	bool removeFromPipeline(GstElement* pipeline);
 	GstPad* getPad();
@@ -54,7 +54,7 @@ public:
 };
 
 class MediaServer {
-	GstElement* pipeline, * switchPad;
+	GstElement* pipeline, * vidSwitch, *audSwitch;
 	GstElementFactory* queueFactory;
 	MediaTable table;
 	GMainLoop* main_loop;
